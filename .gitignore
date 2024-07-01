@@ -4,4 +4,3 @@ dataset
 *.dll
 out/
 .idea
-test_*.py
