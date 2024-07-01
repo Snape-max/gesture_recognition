@@ -9,8 +9,20 @@ from draw_utils import get_angle, get_distance_ratio
 import pickle
 import os
 
-# 本次采集手势标签
-gesture_label = "1"
+# 采集手势标签
+gesture_label_list = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "GOOD", "BAD"]
+
+# 每种手势采集数量
+num_per_label = 5
+
+# 计数器
+num_cnt = 0
+label_cnt = 0
+
+# 特征数据
+fea_data = []
+# 标签
+label = []
 
 
 def calc_angle_feature(point_list, list_lms):
@@ -40,11 +52,6 @@ mpHands = mp.solutions.hands
 hands = mpHands.Hands(max_num_hands=1)
 mpDraw = mp.solutions.drawing_utils
 cap = cv2.VideoCapture(0)
-
-# 特征数据
-fea_data = []
-# 标签
-label = []
 
 # 检查是否存在dataset文件夹
 if not os.path.exists("dataset"):
@@ -114,13 +121,46 @@ while True:
                 feature_set.extend(original_angle_fea)
                 # 添加到特征列表
                 fea_data.append(feature_set)
-                print("手势 {}，已保存特征点数：{}".format(gesture_label, len(fea_data)))
+                # 添加手势标签
+                label.append(label_cnt)
+                print("手势 {}，已保存特征点数：{}".format(gesture_label_list[label_cnt], num_cnt + 1))
+
+                # 提示信息
+                num_cnt += 1
+                if num_cnt == num_per_label:
+                    print("手势 {}，数据采集完成".format(gesture_label_list[label_cnt]))
+                    label_cnt += 1
+                    num_cnt = 0
+
+                if label_cnt == len(gesture_label_list):
+                    print("手势数据采集完成")
+
+                # 删除上一条数据
+            if key == ord('d'):
+                num_cnt -= 1
+                if num_cnt == 0:
+                    num_cnt = num_per_label
+                    label_cnt -= 1
+
+                if label_cnt == -1:
+                    raise ValueError("删到头了兄弟")
+                fea_data.pop()
+                label.pop()
+                print("已删除上一特征点，手势 {} 现有特征点数：{}".format(gesture_label_list[label_cnt], num_cnt))
+
+
 
     cv2.imshow('hands', img)
     if key == ord('f'):
         # 保存到文件
-        fea_file = open('./dataset/fea_data_{}.pkl'.format(gesture_label), 'wb')
-        pickle.dump(fea_data, fea_file)
+        data = {
+            'fea_data': fea_data,
+            'label': label,
+            'label_str': gesture_label_list,
+        }
+
+        fea_file = open('./dataset/data_test.pkl', 'wb')
+        pickle.dump(data, fea_file)
         fea_file.close()
 
     if key == ord('q'):
