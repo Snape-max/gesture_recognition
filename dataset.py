@@ -1,6 +1,10 @@
 """
-创建数据集程序，每次运行，会生成一个新文件，保存手势特征
-! 每次运行需要设置下 gesture_label
+创建数据集程序，需要设置采集手势的标签gesture_label_list和每种手势采集数据num_per_label的数量
+按 s 键采集手势，保存到变量中
+按 d 键删除上一条数据
+按 f 键写入文件 位于 dataset/下
+数据为一个字典，包含手势的数据以及对应的标签
+按 q 键退出程序
 """
 import cv2
 import numpy as np
