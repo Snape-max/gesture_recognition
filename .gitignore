@@ -4,4 +4,4 @@ dataset
 *.dll
 out/
 .idea
-old/
+old/*
