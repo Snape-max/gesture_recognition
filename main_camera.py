@@ -1,15 +1,14 @@
-import time
-from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
+import time
 import cv2
-from PyQt5.QtGui import QIcon, QImage, QPixmap
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QThread, pyqtSlot
-from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
 import mediapipe as mp
 import numpy as np
-from draw_utils import get_str_gesture
-from djitellopy import Tello
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
+from PyQt5.QtGui import QIcon, QImage, QPixmap
+from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton
 
+from draw_utils import get_str_gesture
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(min_detection_confidence=0.60,

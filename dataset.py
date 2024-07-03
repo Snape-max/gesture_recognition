@@ -9,7 +9,7 @@
 import cv2
 import numpy as np
 import mediapipe as mp
-from draw_utils import get_angle, get_distance_ratio
+from draw_utils import calc_feature
 import pickle
 import os
 
@@ -29,26 +29,6 @@ fea_data = []
 label = []
 
 
-def calc_angle_feature(point_list, list_lms):
-    """
-    计算角度特征
-    :param point_list: 待计算特征点索引
-    :param list_lms: 手指特征点列表
-    :return:
-    """
-    return get_angle(list_lms[point_list[0]] - list_lms[point_list[1]],
-                     list_lms[point_list[2]] - list_lms[point_list[1]])
-
-
-def calc_distance_feature(point_list, list_lms):
-    """
-    计算距离特征
-    :param point_list: 待计算特征点索引
-    :param list_lms: 手指特征点列表
-    :return:
-    """
-    return get_distance_ratio(list_lms[point_list[0]] - list_lms[point_list[1]],
-                              list_lms[point_list[2]] - list_lms[point_list[1]])
 
 
 # Hand Detection
@@ -90,39 +70,7 @@ while True:
             cv2.rectangle(img, (min_x, min_y), (max_x, max_y), (0, 255, 0), 2)
             # 计算手势特征点
             if key == ord('s'):
-                feature_set = []
-                # 距离特征点
-                dis_feature_points = [
-                    [17, 2, 4],
-                    [0, 6, 8],
-                    [0, 10, 12],
-                    [0, 14, 16],
-                    [0, 8, 20],
-                ]
-                # 角度特征点
-                angle_feature_points = [
-                    [2, 4, 0],
-                    [5, 8, 0],
-                    [9, 12, 0],
-                    [13, 16, 0],
-                    [17, 20, 0],
-                    [2, 4, 8],
-                    [5, 8, 12],
-                    [9, 12, 16],
-                    [13, 16, 20],
-                ]
-                # 计算距离特征点
-                original_dis_fea = []
-                for i in range(len(dis_feature_points)):
-                    original_dis_fea.append(calc_distance_feature(dis_feature_points[i], list_lms))
-                # 计算角度特征点
-                original_angle_fea = []
-                for i in range(len(angle_feature_points)):
-                    original_angle_fea.append(calc_angle_feature(angle_feature_points[i], list_lms))
-
-                # 合并特征点
-                feature_set.extend(original_dis_fea)
-                feature_set.extend(original_angle_fea)
+                feature_set = calc_feature(list_lms)
                 # 添加到特征列表
                 fea_data.append(feature_set)
                 # 添加手势标签
