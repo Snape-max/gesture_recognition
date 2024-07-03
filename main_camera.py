@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
 from PyQt5.QtGui import QIcon, QImage, QPixmap
 from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton
 
-from draw_utils import get_str_gesture
+from utils import get_str_gesture
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(min_detection_confidence=0.60,

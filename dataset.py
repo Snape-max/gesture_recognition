@@ -6,10 +6,12 @@
 数据为一个字典，包含手势的数据以及对应的标签
 按 q 键退出程序
 """
+import time
+
 import cv2
 import numpy as np
 import mediapipe as mp
-from draw_utils import calc_feature
+from utils import calc_feature
 import pickle
 import os
 
@@ -17,7 +19,7 @@ import os
 gesture_label_list = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "GOOD", "BAD"]
 
 # 每种手势采集数量
-num_per_label = 5
+num_per_label = 30
 
 # 计数器
 num_cnt = 0
@@ -27,9 +29,6 @@ label_cnt = 0
 fea_data = []
 # 标签
 label = []
-
-
-
 
 # Hand Detection
 mpHands = mp.solutions.hands
@@ -100,8 +99,6 @@ while True:
                 label.pop()
                 print("已删除上一特征点，手势 {} 现有特征点数：{}".format(gesture_label_list[label_cnt], num_cnt))
 
-
-
     cv2.imshow('hands', img)
     if key == ord('f'):
         # 保存到文件
@@ -111,7 +108,7 @@ while True:
             'label_str': gesture_label_list,
         }
 
-        fea_file = open('./dataset/data_test.pkl', 'wb')
+        fea_file = open('./dataset/data_{}.pkl'.format(str(time.time()).split('.')[0]), 'wb')
         pickle.dump(data, fea_file)
         fea_file.close()
 

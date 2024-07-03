@@ -7,7 +7,7 @@ from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QThread, pyqtSlot
 from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
 import mediapipe as mp
 import numpy as np
-from draw_utils import get_str_gesture
+from utils import get_str_gesture
 from djitellopy import Tello
 
 

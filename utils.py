@@ -119,6 +119,7 @@ def calc_feature(list_lms):
         [0, 10, 12],
         [0, 14, 16],
         [0, 8, 20],
+        [4, 20, 0]
     ]
     # 角度特征点
     angle_feature_points = [
@@ -131,6 +132,8 @@ def calc_feature(list_lms):
         [5, 8, 12],
         [9, 12, 16],
         [13, 16, 20],
+        [5, 6, 7],
+        [6, 7, 8]
     ]
     # 计算距离特征点
     original_dis_fea = []
@@ -150,8 +153,26 @@ def calc_feature(list_lms):
 def normalization(data):
     """
     数据归一化
+    :param data:
+    :return:
     """
     min_data = np.min(data, axis=0)
     max_data = np.max(data, axis=0)
     norm_data = (data - min_data) / (max_data - min_data)
     return norm_data
+
+
+def normalization_feature(feature_set, num_of_distance_fea):
+    """
+    分别归一化特征值
+    :param feature_set:
+    :param num_of_distance_fea:
+    :return:
+    """
+    feature_set = np.array(feature_set)
+    distance_fea = feature_set[:, :num_of_distance_fea]
+    angle_fea = feature_set[:, num_of_distance_fea:]
+    angle_fea = normalization(angle_fea)
+    distance_fea = normalization(distance_fea)
+    fea_data = np.concatenate((distance_fea, angle_fea), axis=1)
+    return fea_data
