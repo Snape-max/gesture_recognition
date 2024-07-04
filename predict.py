@@ -10,6 +10,9 @@ GESTURE_LIST = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "GOOD", "BAD"
 
 
 class Model:
+    """
+    贝叶斯分类器模型
+    """
     def __init__(self, model_path, num_of_pred_frame):
         """
 
@@ -51,6 +54,9 @@ class Model:
 
 
 class Decision:
+    """
+    决策类, 根据预测结果判断手势
+    """
     def __init__(self, num_of_pred_frame):
         """
 
@@ -60,6 +66,11 @@ class Decision:
         self.result_set = []
 
     def find_out_fingers(self, list_lms):
+        """
+        查找手指外部点坐标
+        :param list_lms: 手指坐标
+        :return: 手指坐标
+        """
         hull_index = [0, 1, 2, 3, 6, 10, 14, 19, 18, 17]
         hull = cv2.convexHull(list_lms[hull_index], True)
 
@@ -74,6 +85,12 @@ class Decision:
         return out_fingers
 
     def get_str_gesture(self, out_fingers, list_lms):
+        """
+        根据手指坐标判断手势
+        :param out_fingers: 手指坐标
+        :param list_lms: 手指坐标
+        :return: 手势字符串
+        """
         if len(out_fingers) == 1 and out_fingers[0] == 8:
             v1 = list_lms[6] - list_lms[7]
             v2 = list_lms[8] - list_lms[7]
@@ -108,7 +125,11 @@ class Decision:
         return str_gesture
 
     def predict(self, list_lms):
-
+        """
+        预测， 返回预测结果和是否完成预测
+        :param list_lms:
+        :return: True, ans or False, ""
+        """
         if len(self.result_set) == self.num_of_pred_frame:
             # 找到result_set中重复最多的元素
             ans = max(set(self.result_set), key=self.result_set.count)
