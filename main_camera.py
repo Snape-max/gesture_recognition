@@ -8,7 +8,9 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
 from PyQt5.QtGui import QIcon, QImage, QPixmap
 from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton
 
-from utils import get_str_gesture
+
+from predict import Decision, Model
+from utils import calc_feature
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(min_detection_confidence=0.60,
@@ -18,14 +20,9 @@ mpDraw = mp.solutions.drawing_utils
 
 mp_holistic = mp.solutions.holistic
 holistic = mp_holistic.Holistic(min_detection_confidence=0.60,
-                                  min_tracking_confidence=0.60)
-
-
-# tello = Tello()
-# tello.connect()
-# tello.set_video_resolution(Tello.RESOLUTION_720P)
-# tello.streamon()
-# frame_read = tello.get_frame_read()
+                                min_tracking_confidence=0.60)
+decision = Decision(num_of_pred_frame=15)
+model = Model(model_path='./model/model_G_new.pkl', num_of_pred_frame=15)
 
 cap = cv2.VideoCapture(0)
 
@@ -39,6 +36,9 @@ class ControlThread(QThread):
     def __init__(self):
         super().__init__()
         self.message = ""
+
+    def send(self, msg):
+        self.control_message.emit(msg)
 
     def run(self):
         cnt = 0
@@ -54,16 +54,19 @@ class ControlThread(QThread):
                     # tello.takeoff()
                     print("\r\n起飞\n", end="")
                     cnt += 1
+                    self.send("5")
 
                 elif self.message == 'Good':
                     # tello.move_up(30)
                     print("\r\n上升\n", end="")
                     cnt += 1
+                    self.send("Good")
 
                 elif self.message == '1':
                     # tello.land()
                     print("\r\n降落\n", end="")
                     cnt += 1
+                    self.send("1")
             else:
                 cnt += 1
                 cnt %= 70
@@ -82,11 +85,25 @@ class Gesture_Window(QtWidgets.QMainWindow):
         """
         super(Gesture_Window, self).__init__()
 
+        self.str_gesture = ""
+
         self.label_info = QLabel(self)
         self.timer_camera = QtCore.QTimer()
         self.timer_state = QtCore.QTimer()
 
+        self.takeoff_button = QPushButton("起飞", self)
+        self.land_button = QPushButton("降落", self)
+        self.emergency_button = QPushButton("急停", self)
+        self.move_up_button = QPushButton("上升", self)
+        self.move_down_button = QPushButton("下降", self)
+        self.move_forward_button = QPushButton("前进", self)
+        self.move_backward_button = QPushButton("后退", self)
+        self.move_left_button = QPushButton("左移", self)
+        self.move_right_button = QPushButton("右移", self)
+
         self.control = ControlThread()
+
+        self.control.control_message.connect(self.update_button)
 
         self.timer_camera.timeout.connect(self.update_frame)
         self.timer_state.timeout.connect(self.update_state)
@@ -126,15 +143,15 @@ class Gesture_Window(QtWidgets.QMainWindow):
 
         # 添加控制按钮
         button_layout = QGridLayout()
-        takeoff_button = QPushButton("起飞", self)
-        land_button = QPushButton("降落", self)
-        emergency_button = QPushButton("急停", self)
-        move_up_button = QPushButton("上升", self)
-        move_down_button = QPushButton("下降", self)
-        move_forward_button = QPushButton("前进", self)
-        move_backward_button = QPushButton("后退", self)
-        move_left_button = QPushButton("左移", self)
-        move_right_button = QPushButton("右移", self)
+        takeoff_button = self.takeoff_button
+        land_button = self.land_button
+        emergency_button = self.emergency_button
+        move_up_button = self.move_up_button
+        move_down_button = self.move_down_button
+        move_forward_button = self.move_forward_button
+        move_backward_button = self.move_backward_button
+        move_left_button = self.move_left_button
+        move_right_button = self.move_right_button
 
         takeoff_button.clicked.connect(self.takeoff)
         land_button.clicked.connect(self.land)
@@ -184,7 +201,7 @@ class Gesture_Window(QtWidgets.QMainWindow):
         """
         ret = 1
         ret, frame = cap.read()
-        str_gesture = ""
+        ans = ""
         if ret:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             height, width, channels = frame.shape
@@ -201,36 +218,28 @@ class Gesture_Window(QtWidgets.QMainWindow):
                     pos_x = int(hand.landmark[i].x * width)
                     pos_y = int(hand.landmark[i].y * height)
                     list_lms.append([pos_x, pos_y])
-
-                # 构造凸包点
+                # 转化为numpy
                 list_lms = np.array(list_lms, dtype=np.int32)
 
-                hull_index = [0, 1, 2, 3, 6, 10, 14, 19, 18, 17]
-                hull = cv2.convexHull(list_lms[hull_index], True)
-                # cv2.polylines(img, [hull], True, (0, 255, 0), 2)
+                # # 计算手势,采用决策树
+                # ret, ans = decision.predict(list_lms)
+                # if ret:
+                #     self.str_gesture = ans
+                # 贝叶斯模型预测手势
+                ret, ans = model.predict(calc_feature(list_lms))
+                if ret:
+                    self.str_gesture = ans
 
-                # 查找外部的点数
-                ll = [4, 8, 12, 16, 20]
-                out_fingers = []
-                for i in ll:
-                    pt = (int(list_lms[i][0]), int(list_lms[i][1]))
-                    dist = cv2.pointPolygonTest(hull, pt, True)
-                    if dist < 0:
-                        out_fingers.append(i)
+                # 获取结果显示到图像上
+                cv2.putText(frame, self.str_gesture, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 0), 4, cv2.LINE_AA)
 
-                str_gesture = get_str_gesture(out_fingers, list_lms)
-                cv2.putText(frame, str_gesture, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 0), 4, cv2.LINE_AA)
-                for i in ll:
-                    pos_x = int(hand.landmark[i].x * width)
-                    pos_y = int(hand.landmark[i].y * height)
-                    cv2.circle(frame, (pos_x, pos_y), 3, (0, 255, 255), -1)
-            # frame.resize((800, 450))
+            # 显示到PYQT窗口中
             showframe = cv2.resize(frame, (800, 600))
             height, width, channel = showframe.shape
             step = channel * width
             qImg = QImage(showframe.data, width, height, step, QImage.Format_RGB888)
             self.label_video.setPixmap(QPixmap.fromImage(qImg))
-            self.control.set_message(str_gesture)
+            self.control.set_message(ans)
 
     def update_state(self):
         """
@@ -268,6 +277,34 @@ class Gesture_Window(QtWidgets.QMainWindow):
                 "温度: {}°\n"
                 "飞行: {}"
                 .format(altitude, battery, temperature, isfly_str))
+
+    def clear_button_style(self):
+        """
+        清除按钮样式
+        :return:
+        """
+        self.takeoff_button.setStyleSheet("QPushButton { height:60px;}")
+        self.land_button.setStyleSheet("QPushButton { height:60px;}")
+        self.emergency_button.setStyleSheet("QPushButton { height:60px;}")
+        self.move_up_button.setStyleSheet("QPushButton { height:60px;}")
+        self.move_down_button.setStyleSheet("QPushButton { height:60px;}")
+        self.move_forward_button.setStyleSheet("QPushButton { height:60px;}")
+        self.move_left_button.setStyleSheet("QPushButton { height:60px;}")
+        self.move_right_button.setStyleSheet("QPushButton { height:60px;}")
+        self.move_backward_button.setStyleSheet("QPushButton { height:60px;}")
+
+    def update_button(self, val):
+        """
+        更新按钮状态
+        """
+        self.clear_button_style()
+        if val == "5":
+            # 改变按钮颜色为绿色
+            self.takeoff_button.setStyleSheet("QPushButton { background-color: green; height:60px; }")
+        elif val == "1":
+            self.land_button.setStyleSheet("QPushButton { background-color: green; height:60px; }")
+        elif val == "Good":
+            self.move_up_button.setStyleSheet("QPushButton { background-color: green; height:60px; }")
 
     def takeoff(self):
         # tello.takeoff()

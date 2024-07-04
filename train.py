@@ -31,6 +31,6 @@ clf.fit(X_train, y_train)
 print("训练集准确率：", clf.score(X_train, y_train))
 print("测试集准确率：", clf.score(X_test, y_test))
 
-model = open("./model/model_new.pkl", "wb")
+model = open("./model/model_G_new.pkl", "wb")
 pickle.dump(clf, model)
 model.close()
