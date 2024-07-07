@@ -28,6 +28,8 @@ X_train, X_test, y_train, y_test = train_test_split(original_fea_data, label, te
 # 训练贝叶斯分类器，使用高斯贝叶斯分类器
 clf = GaussianNB()
 clf.fit(X_train, y_train)
+clf.predict_log_proba()
+clf.predict_joint_log_proba()
 print("训练集准确率：", clf.score(X_train, y_train))
 print("测试集准确率：", clf.score(X_test, y_test))
 

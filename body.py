@@ -16,6 +16,12 @@ pose = mp_pose.Pose(model_complexity=2,  # 选择人体姿态关键点检测模�
                     min_detection_confidence=0.5,  # 置信度阈值
                     min_tracking_confidence=0.5)  # 追踪阈值
 
+from predict import body_recon
+
+decision = body_recon(num_of_pred_frame=10)
+
+res = ""
+
 while True:
     ret, frame = cap.read()
     if ret:
@@ -26,8 +32,10 @@ while True:
             for i in range(33):
                 list_lms.append([landmark[i].x, landmark[i].y])
             list_lms = np.array(list_lms)
-            angle = calc_angle_feature([14, 12, 24], list_lms)
-            print(angle)
+            ret, ans = decision.predict(list_lms)
+            if ans != "":
+                res = ans
+            cv2.putText(frame, res, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             drawing.draw_landmarks(frame, result.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
         cv2.imshow('body', frame)
         key = cv2.waitKey(1)

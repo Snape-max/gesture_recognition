@@ -1,3 +1,6 @@
-import time
+import numpy as np
 
-print(str(time.time()).split('.')[0])
+test = np.array([])
+
+if test:
+    print(1)

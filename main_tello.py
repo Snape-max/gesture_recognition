@@ -8,7 +8,8 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
 from PyQt5.QtGui import QIcon, QImage, QPixmap
 from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton
 from djitellopy import Tello
-from predict import Decision, Model
+from predict import Decision, Model, body_recon
+
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(min_detection_confidence=0.60,
@@ -22,7 +23,7 @@ holistic = mp_holistic.Holistic(min_detection_confidence=0.60,
 
 # method = Decision(num_of_pred_frame=6)
 method = Model(model_path='./model/model_G_new.pkl', num_of_pred_frame=6)
-
+body_method = body_recon(num_of_pred_frame=6)
 # from faketello import fakeTello as Tello
 
 # 真Tello
@@ -60,7 +61,6 @@ class ControlThread(QThread):
             'BAD': 'Bad',
             '': ''
         }
-        self.reversed_key_dict = {v: k for k, v in self.key_dict.items()}
         self.keep_alive_frame = 200
         self.cnt = 0
         self.bcnt = 0
@@ -87,7 +87,7 @@ class ControlThread(QThread):
         """
         while True:
             self.keep_alive(200)
-            ret, command = self.get_command_with_gap(10)
+            ret, command = self.get_command_with_gap(8)
             if ret:
                 print(command)
             self.carry_out_with_gap(command, 70)
@@ -144,6 +144,9 @@ class ControlThread(QThread):
             elif command == 'move_down':
                 tello.move_down(30)
                 print("\r\n下降\n", end="")
+            elif command == 'flip':
+                tello.flip_left()
+                print("\r\nflip\n", end="")
             else:
                 ret = False
         if ret:
@@ -353,8 +356,19 @@ class Gesture_Window(QtWidgets.QMainWindow):
             # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             height, width, channels = frame.shape
             # 得到检测结果
+            # 姿态检测
             holistic_result = holistic.process(frame)
+            body_lms = []
+            if holistic_result.pose_landmarks:
+                landmark = holistic_result.pose_landmarks.landmark
+                for i in range(33):
+                    body_lms.append([landmark[i].x, landmark[i].y])
+                body_lms = np.array(body_lms)
+            if body_lms.size > 0:
+                ret, pose = body_method.predict(body_lms)
             mpDraw.draw_landmarks(frame, holistic_result.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+
+            # 手势检测
             results = hands.process(frame)
             if results.multi_hand_landmarks:
                 for hand in results.multi_hand_landmarks:

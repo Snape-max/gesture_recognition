@@ -22,6 +22,7 @@ class Model:
         """
         self.model = pickle.load(open(model_path, 'rb'))
         self.num_of_pred_frame = num_of_pred_frame
+        self.min_proba = min_proba
         self.feature_set = []
 
     def __collect_feature(self, feature):
@@ -38,6 +39,7 @@ class Model:
     def predict(self, feature):
         """
         预测手势
+        :param min_proba:
         :param feature: 手势特征
         :return: 是否预测完成，预测结果
         """
@@ -50,7 +52,7 @@ class Model:
                 ans = np.argmax(np.bincount(result))
                 return True, GESTURE_LIST[ans]
             else:
-                return True, ""
+                return False, ""
         return False, ""
 
 
@@ -142,7 +144,7 @@ class Decision:
             return False, ""
 
 
-class pose:
+class body_recon:
     def __init__(self, num_of_pred_frame):
         """
 
@@ -151,17 +153,34 @@ class pose:
         self.num_of_pred_frame = num_of_pred_frame
         self.result_set = []
 
-    def predict(self, list_lms):
-        """
-        预测， 返回预测结果和是否完成预测
-        :param list_lms:
-        :return: True, ans or False, ""
-        """
+    def get_angle(self, v1, v2):
+        angle = np.dot(v1, v2) / (np.sqrt(np.sum(v1 * v1)) * np.sqrt(np.sum(v2 * v2)))
+        angle = np.arccos(angle) / 3.14 * 180
+
+        cross = v2[0] * v1[1] - v2[1] * v1[0]
+        if cross < 0:
+            angle = - angle
+        return angle
+
+    def get_pos(self, keypoints):
         str_pose = ""
-        angle_left_arm = calc_angle_feature([14, 12, 24], list_lms)
-        angle_right_arm = calc_angle_feature([13, 11, 23], list_lms)
-        angle_left_elow = calc_angle_feature([11, 13, 15], list_lms)
-        angle_right_elow = calc_angle_feature([12, 14, 16], list_lms)
+        # 计算左臂与水平方向的夹角
+        keypoints = np.array(keypoints)
+        v1 = keypoints[12] - keypoints[11]
+        v2 = keypoints[13] - keypoints[11]
+        angle_left_arm = self.get_angle(v1, v2)
+        # 计算右臂与水平方向的夹角
+        v1 = keypoints[11] - keypoints[12]
+        v2 = keypoints[14] - keypoints[12]
+        angle_right_arm = self.get_angle(v1, v2)
+        # 计算左肘的夹角
+        v1 = keypoints[11] - keypoints[13]
+        v2 = keypoints[15] - keypoints[13]
+        angle_left_elow = self.get_angle(v1, v2)
+        # 计算右肘的夹角
+        v1 = keypoints[12] - keypoints[14]
+        v2 = keypoints[16] - keypoints[14]
+        angle_right_elow = self.get_angle(v1, v2)
 
         if angle_left_arm < 0 and angle_right_arm < 0:
             str_pose = "LEFT_UP"
@@ -176,6 +195,21 @@ class pose:
             if abs(angle_left_elow) < 120 and abs(angle_right_elow) < 120:
                 str_pose = "AKIMBO"
         return str_pose
+
+    def predict(self, list_lms):
+        """
+        预测， 返回预测结果和是否完成预测
+        :param list_lms:
+        :return: True, ans or False, ""
+        """
+        if len(self.result_set) == self.num_of_pred_frame:
+            # 找到result_set中重复最多的元素
+            ans = max(set(self.result_set), key=self.result_set.count)
+            self.result_set = []
+            return True, ans
+        else:
+            self.result_set.append(self.get_pos(list_lms))
+            return False, ""
 
 
 

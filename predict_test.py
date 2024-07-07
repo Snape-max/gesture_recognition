@@ -1,3 +1,5 @@
+import pickle
+
 import mediapipe as mp
 import cv2
 import numpy as np
@@ -33,7 +35,7 @@ while True:
                 list_lms.append([pos_x, pos_y])
             list_lms = np.array(list_lms, dtype=np.int32)
             # 计算特征值并预测手势，15帧给一个结果
-            ret, result = model.predict(calc_feature(list_lms))
+            ret, result = model.predict(list_lms)
             if ret:
                 ans = result
             if ans is not None:
