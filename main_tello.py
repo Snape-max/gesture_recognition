@@ -24,6 +24,7 @@ holistic = mp_holistic.Holistic(min_detection_confidence=0.60,
 method = Model(model_path='./model/model_G_new.pkl', num_of_pred_frame=6)
 
 from faketello import fakeTello
+
 # 真Tello
 # tello = Tello()
 # 假Tello 调试用
@@ -46,13 +47,14 @@ class ControlThread(QThread):
         # 控制字典
         self.key_dict = {
             '10': 'land',
-            '1': 'move_backward',
+            '4': 'move_backward',
             '2': 'move_left',
             '3': 'move_right',
-            '4': 'take_off',
+            '1': 'take_off',
             '5': 'move_up',
             '6': 'move_forward',
             '7': 'move_down',
+
             '8': 'stop',
             '9': 'flip',
             'GOOD': 'Good',
@@ -63,6 +65,9 @@ class ControlThread(QThread):
         self.keep_alive_frame = 200
         self.cnt = 0
         self.bcnt = 0
+        self.ccnt = 0
+        self.command1 = ""
+        self.command2 = ""
 
     def send(self, msg):
         self.control_message.emit(msg)
@@ -83,7 +88,9 @@ class ControlThread(QThread):
         """
         while True:
             self.keep_alive(200)
-            command = self.key_dict[self.message]
+            ret, command = self.get_command_with_gap(10)
+            if ret:
+                print(command)
             self.carry_out_with_gap(command, 70)
             time.sleep(0.033)
 
@@ -91,14 +98,14 @@ class ControlThread(QThread):
     def set_message(self, msg):
         self.message = msg  # 设置消息
 
-    def carry_out_with_gap(self, command, frame):
+    def carry_out_with_gap(self, command, frames):
         if self.cnt == 0:
             ret = self.carry_out(command)
             if ret:
                 self.cnt += 1
         else:
             self.cnt += 1
-            self.cnt %= frame
+            self.cnt %= frames
             print("\r延时%d帧" % self.cnt, end="")
 
     def carry_out(self, command):
@@ -150,6 +157,36 @@ class ControlThread(QThread):
         if self.bcnt == frames - 1:
             tello.send_command_without_return("keepalive")
             print("keepalive")
+
+    def get_command(self):
+        ret = False
+        command = self.key_dict[self.message]
+        if command != "":
+            ret = True
+        return ret, command
+
+    def get_command_with_gap(self, frames):
+        ret = False
+        command = ""
+        if self.ccnt == 0:
+            self.ccnt += 1
+            ret, tep_command = self.get_command()
+            if ret:
+                self.command1 = tep_command
+        else:
+            self.ccnt += 1
+            self.ccnt %= frames
+            if self.ccnt == frames - 1:
+                ret, tep_command = self.get_command()
+                if ret:
+                    self.command2 = tep_command
+                # print("command1={}, command2={}".format(self.command1, self.command2))
+                if self.command1 == self.command2 and (self.command1 != ""):
+                    command = self.command1
+                    self.command1 = ""
+                    self.command2 = ""
+                    ret = True
+        return ret, command
 
 
 class WorkerThread(QThread):

@@ -63,7 +63,7 @@ class fakeTello:
     def move_back(self, x):
         pass
 
-    def emergency(self, x):
+    def emergency(self):
         pass
 
     def get_battery(self):
