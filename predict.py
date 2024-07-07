@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from sklearn.naive_bayes import GaussianNB
 
-from utils import get_angle
+from utils import get_angle, calc_feature
 
 GESTURE_LIST = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "GOOD", "BAD"]
 
@@ -29,7 +29,7 @@ class Model:
         :param feature:
         :return:
         """
-        self.feature_set.append(feature)
+        self.feature_set.append(calc_feature(feature))
         if len(self.feature_set) == self.num_of_pred_frame:
             return True
         return False

@@ -10,7 +10,6 @@ import numpy as np
 from utils import get_str_gesture
 from djitellopy import Tello
 
-
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(min_detection_confidence=0.60,
                       min_tracking_confidence=0.60,
@@ -19,15 +18,13 @@ mpDraw = mp.solutions.drawing_utils
 
 mp_holistic = mp.solutions.holistic
 holistic = mp_holistic.Holistic(min_detection_confidence=0.60,
-                                  min_tracking_confidence=0.60)
-
+                                min_tracking_confidence=0.60)
 
 tello = Tello()
 tello.connect()
 tello.set_video_resolution(Tello.RESOLUTION_720P)
 tello.streamon()
 frame_read = tello.get_frame_read()
-
 
 
 class ControlThread(QThread):

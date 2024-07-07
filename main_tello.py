@@ -7,13 +7,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
 from PyQt5.QtGui import QIcon, QImage, QPixmap
 from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton
-
+from djitellopy import Tello
 from predict import Decision, Model
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(min_detection_confidence=0.60,
                       min_tracking_confidence=0.60,
-                      model_complexity=0,
                       max_num_hands=1)
 mpDraw = mp.solutions.drawing_utils
 
@@ -24,7 +23,15 @@ holistic = mp_holistic.Holistic(min_detection_confidence=0.60,
 # method = Decision(num_of_pred_frame=6)
 method = Model(model_path='./model/model_G_new.pkl', num_of_pred_frame=6)
 
-cap = cv2.VideoCapture(0)
+from faketello import fakeTello
+# 真Tello
+# tello = Tello()
+# 假Tello 调试用
+tello = fakeTello()
+tello.connect()
+tello.set_video_resolution(fakeTello.RESOLUTION_720P)
+tello.streamon()
+frame_read = tello.get_frame_read()
 
 
 class ControlThread(QThread):
@@ -52,6 +59,10 @@ class ControlThread(QThread):
             'BAD': 'Bad',
             '': ''
         }
+        self.reversed_key_dict = {v: k for k, v in self.key_dict.items()}
+        self.keep_alive_frame = 200
+        self.cnt = 0
+        self.bcnt = 0
 
     def send(self, msg):
         self.control_message.emit(msg)
@@ -70,66 +81,109 @@ class ControlThread(QThread):
 
         :return:
         """
-        cnt = 0
-        bcnt = 0
         while True:
-            bcnt += 1
-            bcnt %= 400
-            if bcnt == 399:
-                # tello.send_command_without_return("keepalive")
-                print("keepalive")
-            if cnt == 0:
-                command = self.key_dict[self.message]
-                if command == "take_off":
-                    # tello.takeoff()
-                    print("\r\n起飞\n", end="")
-                    cnt += 1
-
-                elif command == 'move_up':
-                    # tello.move_up(30)
-                    print("\r\n上升\n", end="")
-                    cnt += 1
-
-                elif command == 'land':
-                    # tello.land()
-                    print("\r\n降落\n", end="")
-                    cnt += 1
-
-                elif command == 'move_left':
-                    # tello.move_left(30)
-                    print("\r\n左移\n", end="")
-                    cnt += 1
-
-                elif command == 'move_right':
-                    # tello.move_right(30)
-                    print("\r\n右移\n", end="")
-                    cnt += 1
-
-                elif command == 'move_backward':
-                    # tello.move_backward(30)
-                    print("\r\n后退\n", end="")
-                    cnt += 1
-
-                elif command == 'move_forward':
-                    # tello.move_forward(30)
-                    print("\r\n前进\n", end="")
-                    cnt += 1
-
-                elif command == 'move_down':
-                    # tello.move_down(30)
-                    print("\r\n下降\n", end="")
-                    cnt += 1
-                self.send(command)
-
-            else:
-                cnt += 1
-                cnt %= 70
-                print("\r延时%d帧" % cnt, end="")
+            self.keep_alive(200)
+            command = self.key_dict[self.message]
+            self.carry_out_with_gap(command, 70)
             time.sleep(0.033)
 
     @pyqtSlot(str)
     def set_message(self, msg):
         self.message = msg  # 设置消息
+
+    def carry_out_with_gap(self, command, frame):
+        if self.cnt == 0:
+            ret = self.carry_out(command)
+            if ret:
+                self.cnt += 1
+        else:
+            self.cnt += 1
+            self.cnt %= frame
+            print("\r延时%d帧" % self.cnt, end="")
+
+    def carry_out(self, command):
+        ret = True
+        if not tello.is_flying:
+            if command == "take_off":
+                tello.takeoff()
+                print("\r\n起飞\n", end="")
+            else:
+                ret = False
+
+        else:
+            if command == 'move_up':
+                tello.move_up(30)
+                print("\r\n上升\n", end="")
+
+            elif command == 'land':
+                tello.land()
+                print("\r\n降落\n", end="")
+
+            elif command == 'move_left':
+                tello.move_left(30)
+                print("\r\n左移\n", end="")
+
+            elif command == 'move_right':
+                tello.move_right(30)
+                print("\r\n右移\n", end="")
+
+            elif command == 'move_backward':
+                tello.move_backward(30)
+                print("\r\n后退\n", end="")
+
+            elif command == 'move_forward':
+                tello.move_forward(30)
+                print("\r\n前进\n", end="")
+
+            elif command == 'move_down':
+                tello.move_down(30)
+                print("\r\n下降\n", end="")
+            else:
+                ret = False
+        if ret:
+            self.send(command)
+        return ret
+
+    def keep_alive(self, frames):
+        self.bcnt += 1
+        self.bcnt %= frames
+        if self.bcnt == frames - 1:
+            tello.send_command_without_return("keepalive")
+            print("keepalive")
+
+
+class WorkerThread(QThread):
+    def __init__(self):
+        super().__init__()
+        self.message = ""
+
+    def run(self) -> None:
+        while 1:
+            if self.message == "take_off":
+                tello.takeoff()
+            elif self.message == "land":
+                tello.land()
+            elif self.message == "move_up":
+                tello.move_up(30)
+            elif self.message == "move_down":
+                tello.move_down(30)
+            elif self.message == "move_forward":
+                tello.move_forward(30)
+            elif self.message == "move_left":
+                tello.move_left(30)
+            elif self.message == "move_right":
+                tello.move_right(30)
+            elif self.message == "move_back":
+                tello.move_back(30)
+            elif self.message == "emergency":
+                tello.emergency()
+            else:
+                pass
+            self.message = ""
+            time.sleep(0.5)
+
+    def send(self, message):
+        self.message = message
 
 
 class Gesture_Window(QtWidgets.QMainWindow):
@@ -156,6 +210,7 @@ class Gesture_Window(QtWidgets.QMainWindow):
         self.move_right_button = QPushButton("右移", self)
 
         self.control = ControlThread()
+        self.worker = WorkerThread()
 
         self.control.control_message.connect(self.update_button)
 
@@ -165,6 +220,7 @@ class Gesture_Window(QtWidgets.QMainWindow):
         self.timer_camera.start(30)  # 设置视频帧率
         self.timer_state.start(5000)
         self.control.start()
+        self.worker.start()
 
     def set_ui(self):
         """
@@ -206,16 +262,16 @@ class Gesture_Window(QtWidgets.QMainWindow):
         move_backward_button = self.move_backward_button
         move_left_button = self.move_left_button
         move_right_button = self.move_right_button
-
-        takeoff_button.clicked.connect(self.takeoff)
-        land_button.clicked.connect(self.land)
-        emergency_button.clicked.connect(self.emergency_stop)
-        move_up_button.clicked.connect(self.move_up)
-        move_down_button.clicked.connect(self.move_down)
-        move_forward_button.clicked.connect(self.move_forward)
-        move_backward_button.clicked.connect(self.move_backward)
-        move_left_button.clicked.connect(self.move_left)
-        move_right_button.clicked.connect(self.move_right)
+        # 按钮作用
+        takeoff_button.clicked.connect(self.send_worker("take_off"))
+        land_button.clicked.connect(self.send_worker("land"))
+        emergency_button.clicked.connect(self.send_worker("emergency"))
+        move_up_button.clicked.connect(self.send_worker("move_up"))
+        move_down_button.clicked.connect(self.send_worker("move_down"))
+        move_forward_button.clicked.connect(self.send_worker("move_forward"))
+        move_backward_button.clicked.connect(self.send_worker("move_back"))
+        move_left_button.clicked.connect(self.send_worker("move_left"))
+        move_right_button.clicked.connect(self.send_worker("move_right"))
 
         # 设置字体大小
         font.setPointSize(12)
@@ -228,6 +284,7 @@ class Gesture_Window(QtWidgets.QMainWindow):
         move_backward_button.setFont(font)
         move_left_button.setFont(font)
         move_right_button.setFont(font)
+        # 设置按钮大小
         takeoff_button.setStyleSheet("height:60px;")
         land_button.setStyleSheet("height:60px;")
         emergency_button.setStyleSheet("height:60px;")
@@ -254,10 +311,10 @@ class Gesture_Window(QtWidgets.QMainWindow):
         更新视频流
         """
         ret = 1
-        ret, frame = cap.read()
+        frame = frame_read.frame
         ans = ""
         if ret:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             height, width, channels = frame.shape
             # 得到检测结果
             holistic_result = holistic.process(frame)
@@ -296,14 +353,10 @@ class Gesture_Window(QtWidgets.QMainWindow):
         """
         更新无人机状态
         """
-        # battery = tello.get_battery()
-        # altitude = tello.get_height()
-        # temperature = tello.get_temperature()
-        # isfly = tello.is_flying
-        battery = 80
-        altitude = 10
-        temperature = 20
-        isfly = True
+        battery = tello.get_battery()
+        altitude = tello.get_height()
+        temperature = tello.get_temperature()
+        isfly = tello.is_flying
         isfly_str = ""
         if isfly:
             isfly_str = "True"
@@ -367,41 +420,8 @@ class Gesture_Window(QtWidgets.QMainWindow):
         elif val == "move_backward":
             self.move_backward_button.setStyleSheet("QPushButton { background-color: green; height:60px; }")
 
-    def takeoff(self):
-        # tello.takeoff()
-        print("Taking off...")
-
-    def land(self):
-        # tello.land()
-        print("Landing...")
-
-    def emergency_stop(self):
-        # tello.emergency()
-        print("Emergency stop!")
-
-    def move_up(self):
-        # tello.move_up(20)
-        print("Move up 20cm")
-
-    def move_down(self):
-        # tello.move_down(20)
-        print("Move down 20cm")
-
-    def move_forward(self):
-        # tello.move_forward(20)
-        print("Move forward 20cm")
-
-    def move_backward(self):
-        # tello.move_backward(20)
-        print("Move backward 20cm")
-
-    def move_left(self):
-        # tello.move_left(20)
-        print("Move left 20cm")
-
-    def move_right(self):
-        # tello.move_right(20)
-        print("Move right 20cm")
+    def send_worker(self, val):
+        return lambda: self.worker.send(val)
 
 
 if __name__ == '__main__':
