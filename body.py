@@ -4,6 +4,7 @@ import numpy as np
 
 from utils import calc_angle_feature
 
+
 cap = cv2.VideoCapture(0)
 
 mp_pose = mp.solutions.pose

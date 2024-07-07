@@ -48,8 +48,6 @@ class fakeTello:
     def move_right(self, x):
         pass
 
-    def move_backward(self, x):
-        pass
 
     def move_forward(self, x):
         pass

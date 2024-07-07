@@ -23,14 +23,14 @@ holistic = mp_holistic.Holistic(min_detection_confidence=0.60,
 # method = Decision(num_of_pred_frame=6)
 method = Model(model_path='./model/model_G_new.pkl', num_of_pred_frame=6)
 
-from faketello import fakeTello
+# from faketello import fakeTello as Tello
 
 # 真Tello
-# tello = Tello()
+tello = Tello()
 # 假Tello 调试用
-tello = fakeTello()
+# tello = Tello()
 tello.connect()
-tello.set_video_resolution(fakeTello.RESOLUTION_720P)
+tello.set_video_resolution(Tello.RESOLUTION_720P)
 tello.streamon()
 frame_read = tello.get_frame_read()
 
@@ -54,7 +54,6 @@ class ControlThread(QThread):
             '5': 'move_up',
             '6': 'move_forward',
             '7': 'move_down',
-
             '8': 'stop',
             '9': 'flip',
             'GOOD': 'Good',
@@ -135,7 +134,7 @@ class ControlThread(QThread):
                 print("\r\n右移\n", end="")
 
             elif command == 'move_backward':
-                tello.move_backward(30)
+                tello.move_back(30)
                 print("\r\n后退\n", end="")
 
             elif command == 'move_forward':

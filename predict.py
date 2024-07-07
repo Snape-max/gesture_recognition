@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from sklearn.naive_bayes import GaussianNB
 
-from utils import get_angle, calc_feature
+from utils import get_angle, calc_feature, calc_angle_feature
 
 GESTURE_LIST = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "GOOD", "BAD"]
 
@@ -13,6 +13,7 @@ class Model:
     """
     贝叶斯分类器模型
     """
+
     def __init__(self, model_path, num_of_pred_frame):
         """
 
@@ -57,6 +58,7 @@ class Decision:
     """
     决策类, 根据预测结果判断手势
     """
+
     def __init__(self, num_of_pred_frame):
         """
 
@@ -138,3 +140,42 @@ class Decision:
         else:
             self.result_set.append(self.get_str_gesture(self.find_out_fingers(list_lms), list_lms))
             return False, ""
+
+
+class pose:
+    def __init__(self, num_of_pred_frame):
+        """
+
+        :param num_of_pred_frame: 每次检测取几帧
+        """
+        self.num_of_pred_frame = num_of_pred_frame
+        self.result_set = []
+
+    def predict(self, list_lms):
+        """
+        预测， 返回预测结果和是否完成预测
+        :param list_lms:
+        :return: True, ans or False, ""
+        """
+        str_pose = ""
+        angle_left_arm = calc_angle_feature([14, 12, 24], list_lms)
+        angle_right_arm = calc_angle_feature([13, 11, 23], list_lms)
+        angle_left_elow = calc_angle_feature([11, 13, 15], list_lms)
+        angle_right_elow = calc_angle_feature([12, 14, 16], list_lms)
+
+        if angle_left_arm < 0 and angle_right_arm < 0:
+            str_pose = "LEFT_UP"
+        elif angle_left_arm > 0 and angle_right_arm > 0:
+            str_pose = "RIGHT_UP"
+        elif angle_left_arm < 0 and angle_right_arm > 0:
+            str_pose = "ALL_HANDS_UP"
+            if abs(angle_left_elow) < 120 and abs(angle_right_elow) < 120:
+                str_pose = "TRIANGLE"
+        elif angle_left_arm > 0 and angle_right_arm < 0:
+            str_pose = "NORMAL"
+            if abs(angle_left_elow) < 120 and abs(angle_right_elow) < 120:
+                str_pose = "AKIMBO"
+        return str_pose
+
+
+
