@@ -36,6 +36,7 @@ class fakeTello:
         pass
 
     def move_up(self, x):
+        print("move {}cm".format(x))
         pass
 
     def land(self):
@@ -43,22 +44,27 @@ class fakeTello:
         pass
 
     def move_left(self, x):
+        print("move {}cm".format(x))
         pass
 
     def move_right(self, x):
+        print("move {}cm".format(x))
         pass
 
 
     def move_forward(self, x):
+        print("move {}cm".format(x))
         pass
 
     def move_down(self, x):
+        print("move {}cm".format(x))
         pass
 
     def send_command_without_return(self, x):
         pass
 
     def move_back(self, x):
+        print("move {}cm".format(x))
         pass
 
     def emergency(self):
@@ -72,3 +78,12 @@ class fakeTello:
 
     def get_temperature(self):
         return 30
+
+    def flip_right(self):
+        pass
+
+    def flip_left(self):
+        pass
+
+    def flip_forward(self):
+        pass

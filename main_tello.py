@@ -6,30 +6,30 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
 from PyQt5.QtGui import QIcon, QImage, QPixmap
-from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton
+from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel, QPushButton, QSlider
 from djitellopy import Tello
 from predict import Decision, Model, body_recon
 
-
 mpHands = mp.solutions.hands
-hands = mpHands.Hands(min_detection_confidence=0.60,
-                      min_tracking_confidence=0.60,
+hands = mpHands.Hands(min_detection_confidence=0.85,
+                      min_tracking_confidence=0.85,
                       max_num_hands=1)
 mpDraw = mp.solutions.drawing_utils
 
 mp_holistic = mp.solutions.holistic
-holistic = mp_holistic.Holistic(min_detection_confidence=0.60,
-                                min_tracking_confidence=0.60)
+mp_pose = mp.solutions.pose
+pose = mp_pose.Pose(model_complexity=1,  # 选择人体姿态关键点检测模型，0性能差但快，2性能好但慢，1介于之间
+                    smooth_landmarks=True,  # 是否选择平滑关键点
+                    min_detection_confidence=0.5,  # 置信度阈值
+                    min_tracking_confidence=0.5)  # 追踪阈值
 
 # method = Decision(num_of_pred_frame=6)
 method = Model(model_path='./model/model_G_new.pkl', num_of_pred_frame=6)
 body_method = body_recon(num_of_pred_frame=6)
-# from faketello import fakeTello as Tello
+from faketello import fakeTello as Tello
 
 # 真Tello
 tello = Tello()
-# 假Tello 调试用
-# tello = Tello()
 tello.connect()
 tello.set_video_resolution(Tello.RESOLUTION_720P)
 tello.streamon()
@@ -56,12 +56,19 @@ class ControlThread(QThread):
             '6': 'move_forward',
             '7': 'move_down',
             '8': 'stop',
-            '9': 'flip',
+            '9': '',
             'GOOD': 'Good',
             'BAD': 'Bad',
-            '': ''
+            '': '',
+            'NORMAL': '',
+            'RIGHT_UP': 'flip_r',
+            'LEFT_UP': 'flip_l',
+            'ALL_HANDS_UP': 'flip_f',
+            'TRIANGLE': 'TRIANGLE',
+            'AKIMBO': 'AKIMBO'
         }
         self.keep_alive_frame = 200
+        self.distance = 20
         self.cnt = 0
         self.bcnt = 0
         self.ccnt = 0
@@ -87,9 +94,9 @@ class ControlThread(QThread):
         """
         while True:
             self.keep_alive(200)
-            ret, command = self.get_command_with_gap(8)
-            if ret:
-                print(command)
+            ret, command = self.get_command_with_gap(20)
+            # if ret:
+            #     print(command)
             self.carry_out_with_gap(command, 70)
             time.sleep(0.033)
 
@@ -118,7 +125,7 @@ class ControlThread(QThread):
 
         else:
             if command == 'move_up':
-                tello.move_up(30)
+                tello.move_up(self.distance)
                 print("\r\n上升\n", end="")
 
             elif command == 'land':
@@ -126,31 +133,38 @@ class ControlThread(QThread):
                 print("\r\n降落\n", end="")
 
             elif command == 'move_left':
-                tello.move_left(30)
+                tello.move_left(self.distance)
                 print("\r\n左移\n", end="")
 
             elif command == 'move_right':
-                tello.move_right(30)
+                tello.move_right(self.distance)
                 print("\r\n右移\n", end="")
 
             elif command == 'move_backward':
-                tello.move_back(30)
+                tello.move_back(self.distance)
                 print("\r\n后退\n", end="")
 
             elif command == 'move_forward':
-                tello.move_forward(30)
+                tello.move_forward(self.distance)
                 print("\r\n前进\n", end="")
 
             elif command == 'move_down':
-                tello.move_down(30)
+                tello.move_down(self.distance)
                 print("\r\n下降\n", end="")
-            elif command == 'flip':
+            elif command == 'flip_l':
                 tello.flip_left()
-                print("\r\nflip\n", end="")
+                print("\r\nflip l\n", end="")
+            elif command == 'flip_r':
+                tello.flip_right()
+                print("\r\nflip l\n", end="")
+            elif command == 'flip_f':
+                tello.flip_forward()
+                print("\r\nflip l\n", end="")
             else:
                 ret = False
         if ret:
             self.send(command)
+            self.message = ""
         return ret
 
     def keep_alive(self, frames):
@@ -158,7 +172,7 @@ class ControlThread(QThread):
         self.bcnt %= frames
         if self.bcnt == frames - 1:
             tello.send_command_without_return("keepalive")
-            print("keepalive")
+            print("\r\nkeepalive\n", end="")
 
     def get_command(self):
         ret = False
@@ -233,6 +247,7 @@ class Gesture_Window(QtWidgets.QMainWindow):
         super(Gesture_Window, self).__init__()
 
         self.str_gesture = ""
+        self.dec_object = 0
 
         self.label_info = QLabel(self)
         self.timer_camera = QtCore.QTimer()
@@ -247,6 +262,11 @@ class Gesture_Window(QtWidgets.QMainWindow):
         self.move_backward_button = QPushButton("后退", self)
         self.move_left_button = QPushButton("左移", self)
         self.move_right_button = QPushButton("右移", self)
+
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMaximum(100)
+        self.slider.setMinimum(20)
+        self.slider.valueChanged.connect(self.distance_change)
 
         self.control = ControlThread()
         self.worker = WorkerThread()
@@ -288,7 +308,9 @@ class Gesture_Window(QtWidgets.QMainWindow):
         self.label_info.setFont(font)
         self.label_info.setStyleSheet("color: #000000;background-color: #FFFAFA")
         self.label_info.setAlignment(Qt.AlignTop)
-        grid.addWidget(self.label_info, 0, 2, 1, 2)
+        grid.addWidget(self.label_info, 0, 2, 1, 1)
+
+        grid.addWidget(self.slider, 1, 2)
 
         # 添加控制按钮
         button_layout = QGridLayout()
@@ -345,51 +367,80 @@ class Gesture_Window(QtWidgets.QMainWindow):
         button_layout.addWidget(move_right_button, 1, 2)
         grid.addLayout(button_layout, 1, 2, 2, 2)
 
+    def distance_change(self, val):
+        label_info = self.label_info.text()
+        label_info_list = label_info.split("\n")
+        label_info_list[-1] = "每次移动距离: {}cm".format(val)
+        NewText = "\n".join(label_info_list)
+        self.label_info.setText(NewText)
+        # 设置每次移动距离
+        self.control.distance = val
+
     def update_frame(self):
         """
         更新视频流
         """
-        ret = 1
+        rets = 1
         frame = frame_read.frame
         ans = ""
-        if ret:
-            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if rets:
             height, width, channels = frame.shape
             # 得到检测结果
             # 姿态检测
-            holistic_result = holistic.process(frame)
-            body_lms = []
-            if holistic_result.pose_landmarks:
-                landmark = holistic_result.pose_landmarks.landmark
-                for i in range(33):
-                    body_lms.append([landmark[i].x, landmark[i].y])
-                body_lms = np.array(body_lms)
-            if body_lms.size > 0:
-                ret, pose = body_method.predict(body_lms)
-            mpDraw.draw_landmarks(frame, holistic_result.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+            if self.dec_object == 1:
 
-            # 手势检测
-            results = hands.process(frame)
-            if results.multi_hand_landmarks:
-                for hand in results.multi_hand_landmarks:
-                    mpDraw.draw_landmarks(frame, hand, mpHands.HAND_CONNECTIONS)
-                # 采集所有关键点坐标
-                list_lms = []
-                for i in range(21):
-                    pos_x = int(hand.landmark[i].x * width)
-                    pos_y = int(hand.landmark[i].y * height)
-                    list_lms.append([pos_x, pos_y])
-                # 转化为numpy
-                list_lms = np.array(list_lms, dtype=np.int32)
+                temp_ans = ""
+                holistic_result = pose.process(frame)
+                body_lms = []
+                if holistic_result.pose_landmarks:
+                    landmark = holistic_result.pose_landmarks.landmark
+                    for i in range(33):
+                        body_lms.append([landmark[i].x, landmark[i].y])
+                    body_lms = np.array(body_lms)
+                    ret = False
+                    if body_lms.size > 0:
+                        ret, ans = body_method.predict(body_lms)
 
-                # 计算手势, method采用哪种方法看前面定义
-                ret, ans = method.predict(list_lms)
-                if ret:
-                    self.str_gesture = ans
+                    if ret:
+                        self.str_gesture = ans
+                        self.control.set_message(self.str_gesture)
+                        self.str_gesture = ""
 
-                # 获取结果显示到图像上
-                cv2.putText(frame, self.str_gesture, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 0), 4,
-                            cv2.LINE_AA)
+                    cv2.putText(frame, ans, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 4,
+                                cv2.LINE_AA)
+                    mpDraw.draw_landmarks(frame, holistic_result.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+
+                    if ans == "TRIANGLE":
+                        self.dec_object = 0
+            else:
+                # 手势检测
+                results = hands.process(frame)
+                if results.multi_hand_landmarks:
+                    for hand in results.multi_hand_landmarks:
+                        mpDraw.draw_landmarks(frame, hand, mpHands.HAND_CONNECTIONS)
+                    # 采集所有关键点坐标
+                    list_lms = []
+                    for i in range(21):
+                        pos_x = int(hand.landmark[i].x * width)
+                        pos_y = int(hand.landmark[i].y * height)
+                        list_lms.append([pos_x, pos_y])
+                    # 转化为numpy
+                    list_lms = np.array(list_lms, dtype=np.int32)
+
+                    # 计算手势, method采用哪种方法看前面定义
+                    ret, ans = method.predict(list_lms)
+
+                    if ret:
+                        self.str_gesture = ans
+                        self.control.set_message(self.str_gesture)
+                        self.str_gesture = ""
+
+                    # 获取结果显示到图像上
+                    cv2.putText(frame, ans, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 0), 4,
+                                cv2.LINE_AA)
+
+                    if ans == "GOOD" and tello.is_flying:
+                        self.dec_object = 1
 
             # 显示到PYQT窗口中
             showframe = cv2.resize(frame, (800, 600))
@@ -397,7 +448,6 @@ class Gesture_Window(QtWidgets.QMainWindow):
             step = channel * width
             qImg = QImage(showframe.data, width, height, step, QImage.Format_RGB888)
             self.label_video.setPixmap(QPixmap.fromImage(qImg))
-            self.control.set_message(ans)
 
     def update_state(self):
         """
@@ -420,8 +470,9 @@ class Gesture_Window(QtWidgets.QMainWindow):
                 "高度: {}cm\n"
                 "电量: {}%\n"
                 "温度:{}°\n"
-                "飞行: {}"
-                .format(altitude, battery, temperature, isfly_str))
+                "飞行: {}\n"
+                "每次移动距离: {}cm\n"
+                .format(altitude, battery, temperature, isfly_str, self.control.distance))
         else:
             self.label_info.setText(
                 "无人机信息:\n"
@@ -429,8 +480,9 @@ class Gesture_Window(QtWidgets.QMainWindow):
                 "高度: {}cm\n"
                 "电量: {}%\n"
                 "温度: {}°\n"
-                "飞行: {}"
-                .format(altitude, battery, temperature, isfly_str))
+                "飞行: {}\n"
+                "每次移动距离: {}cm"
+                .format(altitude, battery, temperature, isfly_str, self.control.distance))
 
     def clear_button_style(self):
         """

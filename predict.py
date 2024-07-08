@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from sklearn.naive_bayes import GaussianNB
 
-from utils import get_angle, calc_feature, calc_angle_feature
+from utils import get_angle, calc_feature
 
 GESTURE_LIST = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "GOOD", "BAD"]
 
@@ -22,7 +22,6 @@ class Model:
         """
         self.model = pickle.load(open(model_path, 'rb'))
         self.num_of_pred_frame = num_of_pred_frame
-        self.min_proba = min_proba
         self.feature_set = []
 
     def __collect_feature(self, feature):
