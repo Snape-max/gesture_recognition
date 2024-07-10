@@ -13,7 +13,7 @@ hands = mpHands.Hands(max_num_hands=1, min_detection_confidence=0.75, min_tracki
 # 绘图
 mpDraw = mp.solutions.drawing_utils
 # 初始化分类模型
-model = Model(model_path='./model/model_G_new.pkl', num_of_pred_frame=15)
+model = Model(model_path='../model/model_G_new.pkl', num_of_pred_frame=15)
 
 ans = None
 while True:
